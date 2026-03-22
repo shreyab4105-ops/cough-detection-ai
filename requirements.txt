@@ -1,0 +1,13 @@
+flask
+librosa
+numpy
+scipy
+scikit-learn
+PyWavelets
+soundfile
+pydub
+noisereduce
+joblib
+matplotlib
+seaborn
+pandas
