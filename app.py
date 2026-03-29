@@ -10,27 +10,16 @@ app = Flask(__name__)
 # --- Feature Extraction (Ported from DEMO.ipynb) ---
 def extract_features(y, sr=22050, n_mfcc=13):
     try:
-        # Optimized feature extraction for web responsiveness
-        mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=64)
+        mel = librosa.feature.melspectrogram(y=y, sr=sr)
         log_mel = librosa.power_to_db(mel)
-
-        # MFCCs
         mfcc = librosa.feature.mfcc(S=log_mel, sr=sr, n_mfcc=n_mfcc)
-        
-        # Spectral Contrast
-        contrast = librosa.feature.spectral_contrast(y=y, sr=sr, n_bands=4)
-
-        # Wavelet Coefficients (Optimized: fewer scales)
-        scales = np.arange(1, 16)
-        coeffs, _ = pywt.cwt(y, scales, 'morl', sampling_period=1/sr)
+        contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
+        coeffs, _ = pywt.cwt(y, np.arange(1, 32), 'morl', sampling_period=1/sr)
         wavelet_mean = np.mean(np.abs(coeffs), axis=1)
         wavelet_std = np.std(np.abs(coeffs), axis=1)
-
-        # Class-specific features
         energy = np.sum(librosa.feature.rms(y=y))
         flatness = np.mean(librosa.feature.spectral_flatness(y=y))
 
-        # Concatenate all features
         features = np.concatenate([
             np.mean(mfcc, axis=1),
             np.std(mfcc, axis=1),
