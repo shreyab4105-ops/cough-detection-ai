@@ -21,7 +21,7 @@ def setup():
 
         # Grab all audio files (wav or mp3, any case)
         files = glob.glob(f'{src_folder}/*.*')
-        files = [f for f in files if f.lower().endswith(('.wav', '.mp3'))]
+        files = [f for f in files if f.lower().endswith(('.WAV', '.mp3'))]
 
         if not files:
             print(f"Warning: No audio files found for category '{cat}' in {src_folder}!")
