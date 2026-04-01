@@ -4,7 +4,6 @@ import glob
 
 categories = ['Asthama', 'CROUP', 'LTRI', 'NORMAL', 'PNEUMONIA', 'URTI']
 source_root = 'Source'
-
 for cat in categories:
     os.makedirs(os.path.join(source_root, cat), exist_ok=True)
 
