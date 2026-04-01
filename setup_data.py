@@ -14,24 +14,25 @@ def setup():
     for cat in categories:
         src_folder = f'Source/{cat}'
         dst_folder = f'RESIZED/{cat}'
-        
-        # Debug: check if source folder exists
+
         if not os.path.exists(src_folder):
-            print(f"WARNING: Source folder not found: {src_folder}")
+            print(f"Warning: Source folder '{src_folder}' does not exist!")
             continue
-        
-        files = glob.glob(f'{src_folder}/*.wav')
-        print(f"DEBUG: Looking in {src_folder}, found {len(files)} files")
-        
+
+        # Grab all audio files (wav or mp3, any case)
+        files = glob.glob(f'{src_folder}/*.*')
+        files = [f for f in files if f.lower().endswith(('.wav', '.mp3'))]
+
         if not files:
-            print(f"Warning: No .wav files found for category '{cat}' in {src_folder}!")
+            print(f"Warning: No audio files found for category '{cat}' in {src_folder}!")
             continue
-        
+
         for f in files:
             shutil.move(f, os.path.join(dst_folder, os.path.basename(f)))
-        print(f"Moved {len(files)} files for category '{cat}' to RESIZED/{cat}")
-    
-    print("All categories organized successfully in RESIZED/.")
+        
+        print(f"Moved {len(files)} files for category '{cat}' to {dst_folder}")
+
+    print("✅ All categories organized successfully in RESIZED/.")
 
 if __name__ == "__main__":
     setup()
