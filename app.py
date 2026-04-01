@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
-# --- Feature Extraction (Ported from DEMO.ipynb) ---
+# --- Feature Extraction ---
 def extract_features(y, sr=22050, n_mfcc=13):
     try:
         mel = librosa.feature.melspectrogram(y=y, sr=sr)
@@ -33,19 +33,26 @@ def extract_features(y, sr=22050, n_mfcc=13):
         print(f"Error extracting features: {e}")
         return None
 
-# Placeholder for the loaded model
+# --- Model loading ---
 model = None
-categories = ['Asthama', 'CROUP', 'LTRI', 'NORMAL', 'PNEUMONIA', 'URTI']
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SOURCE_DIR = os.path.join(BASE_DIR, 'Source')
+
+# Automatically detect categories in Source/
+categories = [d for d in os.listdir(SOURCE_DIR) if os.path.isdir(os.path.join(SOURCE_DIR, d))]
+print("Detected categories:", categories)
 
 def load_model():
     global model
+    model_path = os.path.join(BASE_DIR, 'cough_model.pkl')
     try:
-        model = joblib.load('cough_model.pkl')
+        model = joblib.load(model_path)
         print("Model loaded successfully.")
     except:
-        print("Model file not found. Prediction will return fallback result.")
+        print("Model file not found. Predictions will be mock results.")
         model = None
 
+# --- Flask Routes ---
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -59,73 +66,65 @@ def predict():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
-    temp_path = 'temp_audio.wav'
+    temp_path = os.path.join(BASE_DIR, 'temp_audio.wav')
     file.save(temp_path)
 
     import time
     start_time = time.time()
     
     try:
-        # Load and process the audio
-        print(f"DEBUG: Starting audio load for {file.filename}...")
-        
-        # Robust loading using both librosa and pydub as fallback
+        # Load audio robustly
+        print(f"DEBUG: Loading audio {file.filename}...")
         try:
             y, sr = librosa.load(temp_path, sr=22050, mono=True, res_type='kaiser_fast')
         except Exception as e:
-            print(f"DEBUG: Librosa load failed ({e}), trying pydub fallback...")
+            print(f"DEBUG: Librosa failed ({e}), trying pydub...")
             from pydub import AudioSegment
             audio = AudioSegment.from_file(temp_path)
             audio = audio.set_frame_rate(22050).set_channels(1)
             y = np.array(audio.get_array_of_samples(), dtype=np.float32) / (2**15)
             sr = 22050
-            
-        print(f"DEBUG: Audio loaded in {time.time() - start_time:.2f}s (length={len(y)})")
-        
-        # Ensure it's 6 seconds
-        target_len = 6 * 22050
+
+        # Pad/trim to 6 seconds
+        target_len = 6 * sr
         if len(y) < target_len:
             y = np.pad(y, (0, target_len - len(y)))
         else:
             y = y[:target_len]
-        
-        print("DEBUG: Starting feature extraction...")
-        feat_start = time.time()
+
+        # Feature extraction
         features = extract_features(y, sr)
-        print(f"DEBUG: Features extracted in {time.time() - feat_start:.2f}s")
-        
         if features is None:
             return jsonify({'error': 'Feature extraction failed'}), 500
 
+        # Predict
         if model:
-            # Predict using the loaded model
             prediction = model.predict([features])[0]
-            # Get probabilities if available
             try:
                 probs = model.predict_proba([features])[0]
                 prob_dict = {cat: float(p) for cat, p in zip(categories, probs)}
             except:
                 prob_dict = None
         else:
-            # Mock prediction if model is not trained yet
             prediction = "NORMAL (Mock)"
             prob_dict = {cat: 0.16 for cat in categories}
             prob_dict['NORMAL'] = 0.2
 
+        print(f"DEBUG: Prediction done in {time.time() - start_time:.2f}s")
         return jsonify({
             'label': prediction,
             'probabilities': prob_dict
         })
+
     except Exception as e:
         import traceback
-        error_type = type(e).__name__
-        error_msg = str(e)
-        print(f"ERROR: {error_type} in {file.filename}: {error_msg}")
+        print("ERROR:", e)
         traceback.print_exc()
         return jsonify({
-            'error': f"Diagnostic failed: {error_type}. Make sure your audio file is valid.",
-            'details': error_msg
+            'error': f"Prediction failed: {type(e).__name__}",
+            'details': str(e)
         }), 500
+
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
