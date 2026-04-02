@@ -1,40 +1,23 @@
 import os
 import numpy as np
 import librosa
-import pywt
 import joblib
 from flask import Flask, request, jsonify, render_template
-from pydub import AudioSegment
-
-# --- FFmpeg fix for pydub ---
-# Update this path to your extracted ffmpeg bin folder
-AudioSegment.converter = r"C:\Users\ACER\Downloads\ffmpeg\bin\ffmpeg.exe"
 
 # --- Absolute template folder fix ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
 
-# --- Feature Extraction ---
+# --- Fix for pydub FFmpeg on Windows ---
+from pydub import AudioSegment
+AudioSegment.converter = r"C:\Users\ACER\Downloads\ffmpeg\bin\ffmpeg.exe"  # <-- adjust path
+
+# --- Feature Extraction (13 MFCCs to match trained model) ---
 def extract_features(y, sr=22050, n_mfcc=13):
     try:
-        mel = librosa.feature.melspectrogram(y=y, sr=sr)
-        log_mel = librosa.power_to_db(mel)
-        mfcc = librosa.feature.mfcc(S=log_mel, sr=sr, n_mfcc=n_mfcc)
-        contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
-        coeffs, _ = pywt.cwt(y, np.arange(1, 32), 'morl', sampling_period=1/sr)
-        wavelet_mean = np.mean(np.abs(coeffs), axis=1)
-        wavelet_std = np.std(np.abs(coeffs), axis=1)
-        energy = np.sum(librosa.feature.rms(y=y))
-        flatness = np.mean(librosa.feature.spectral_flatness(y=y))
-        features = np.concatenate([
-            np.mean(mfcc, axis=1),
-            np.std(mfcc, axis=1),
-            np.mean(contrast, axis=1),
-            wavelet_mean,
-            wavelet_std,
-            [energy, flatness]
-        ])
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+        features = np.mean(mfcc, axis=1)  # 13 features
         return features
     except Exception as e:
         print(f"Error extracting features: {e}")
@@ -81,7 +64,6 @@ def predict():
         try:
             y, sr = librosa.load(temp_path, sr=22050, mono=True, res_type='kaiser_fast')
         except Exception as e:
-            print(f"Librosa failed ({e}), using pydub...")
             audio = AudioSegment.from_file(temp_path)
             audio = audio.set_frame_rate(22050).set_channels(1)
             y = np.array(audio.get_array_of_samples(), dtype=np.float32) / (2**15)
@@ -124,6 +106,7 @@ def predict():
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
+# --- Run server ---
 if __name__ == '__main__':
     load_model()
     app.run(host='0.0.0.0', port=5000, debug=True)
