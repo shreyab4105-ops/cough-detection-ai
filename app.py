@@ -5,7 +5,10 @@ import pywt
 import joblib
 from flask import Flask, request, jsonify, render_template
 
-app = Flask(__name__)
+# --- Absolute template folder fix ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+app = Flask(__name__, template_folder=TEMPLATE_DIR)
 
 # --- Feature Extraction ---
 def extract_features(y, sr=22050, n_mfcc=13):
@@ -19,7 +22,6 @@ def extract_features(y, sr=22050, n_mfcc=13):
         wavelet_std = np.std(np.abs(coeffs), axis=1)
         energy = np.sum(librosa.feature.rms(y=y))
         flatness = np.mean(librosa.feature.spectral_flatness(y=y))
-
         features = np.concatenate([
             np.mean(mfcc, axis=1),
             np.std(mfcc, axis=1),
@@ -35,10 +37,7 @@ def extract_features(y, sr=22050, n_mfcc=13):
 
 # --- Model loading ---
 model = None
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SOURCE_DIR = os.path.join(BASE_DIR, 'Source')
-
-# Automatically detect categories in Source/
 categories = [d for d in os.listdir(SOURCE_DIR) if os.path.isdir(os.path.join(SOURCE_DIR, d))]
 print("Detected categories:", categories)
 
@@ -49,7 +48,7 @@ def load_model():
         model = joblib.load(model_path)
         print("Model loaded successfully.")
     except:
-        print("Model file not found. Predictions will be mock results.")
+        print("Model file not found. Using mock predictions.")
         model = None
 
 # --- Flask Routes ---
@@ -61,7 +60,7 @@ def home():
 def predict():
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file provided'}), 400
-    
+
     file = request.files['audio']
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
@@ -71,14 +70,12 @@ def predict():
 
     import time
     start_time = time.time()
-    
+
     try:
-        # Load audio robustly
-        print(f"DEBUG: Loading audio {file.filename}...")
+        # Load audio
         try:
             y, sr = librosa.load(temp_path, sr=22050, mono=True, res_type='kaiser_fast')
         except Exception as e:
-            print(f"DEBUG: Librosa failed ({e}), trying pydub...")
             from pydub import AudioSegment
             audio = AudioSegment.from_file(temp_path)
             audio = audio.set_frame_rate(22050).set_channels(1)
@@ -111,19 +108,12 @@ def predict():
             prob_dict['NORMAL'] = 0.2
 
         print(f"DEBUG: Prediction done in {time.time() - start_time:.2f}s")
-        return jsonify({
-            'label': prediction,
-            'probabilities': prob_dict
-        })
+        return jsonify({'label': prediction, 'probabilities': prob_dict})
 
     except Exception as e:
         import traceback
-        print("ERROR:", e)
         traceback.print_exc()
-        return jsonify({
-            'error': f"Prediction failed: {type(e).__name__}",
-            'details': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
     finally:
         if os.path.exists(temp_path):
@@ -131,4 +121,5 @@ def predict():
 
 if __name__ == '__main__':
     load_model()
+    # Always accessible from network
     app.run(host='0.0.0.0', port=5000, debug=True)
