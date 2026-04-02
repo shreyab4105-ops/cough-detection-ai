@@ -1,99 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cough Detection AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Modern Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cough Detection AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/chart.js" rel="stylesheet">
+  <style>
+    /* --- Glassmorphic Background --- */
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      backdrop-filter: blur(15px);
+      padding: 40px;
+      width: 400px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #fff;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      margin: 20px 0;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #ff6a3d;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #ff4b1f;
+    }
+    #result {
+      margin-top: 20px;
+      color: #fff;
+    }
+    canvas {
+      margin-top: 20px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+    }
+  </style>
 </head>
-
 <body>
-    <div class="container">
-        <header>
-            <h1>Cough Detection AI</h1>
-            <p>Smart diagnostic sound analysis for respiratory health monitoring.</p>
-        </header>
+  <div class="container">
+    <h1>Cough Detection AI</h1>
+    <input type="file" id="audioFile" accept=".wav,.mp3">
+    <br>
+    <button onclick="uploadAudio()">Analyze Cough</button>
+    <div id="result"></div>
+    <canvas id="probChart" width="350" height="200"></canvas>
+  </div>
 
-        <main>
-            <div id="upload-section" class="card">
-                <div class="card-header">
-                    <div class="header-icon"></div>
-                    <h2>Cough Analysis Engine</h2>
-                </div>
-                <div class="card-body text-center">
-                    <div class="audio-controls mb-4">
-                        <input type="file" id="audio-file" accept="audio/*" class="d-none" onchange="loadFile(event)">
-                        <button id="upload-btn" onclick="document.getElementById('audio-file').click()"
-                            class="btn btn-primary">
-                            <span>Upload Cough Sample</span>
-                        </button>
-                        <button id="record-btn" onclick="toggleRecording()" class="btn btn-danger">
-                            <span>Record Live Cough</span>
-                        </button>
-                    </div>
-                    <div id="status" class="text-muted small">Systems Ready. Awaiting acoustic input.</div>
-                    <audio id="audio-playback" controls class="my-3 w-100 d-none"></audio>
-                    <button id="analyze-btn" onclick="analyzeAudio()" class="btn btn-success d-none">
-                        START DIAGNOSTIC SCAN
-                    </button>
-                </div>
-            </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    let chart;
 
-            <div id="result-section" class="card d-none">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-6 text-center">
-                            <h3 class="text-secondary small text-uppercase fw-bold mb-3">Primary Diagnosis</h3>
-                            <div id="prediction-label" class="display-4">---</div>
-                            <div id="confidence-info" class="mt-4 text-muted"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="chart-container">
-                                <canvas id="analysis-chart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    function uploadAudio() {
+      const fileInput = document.getElementById('audioFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select an audio file.");
+        return;
+      }
 
-            <div class="disorder-grid">
-                <div class="disorder-item">
-                    <h4>Asthma</h4>
-                    <p class="small text-muted">Chronic airway inflammation detection through unique spectral
-                        signatures.</p>
-                </div>
-                <div class="disorder-item">
-                    <h4>Croup</h4>
-                    <p class="small text-muted">Vocal cord pulse analysis for viral infection monitoring.</p>
-                </div>
-                <div class="disorder-item">
-                    <h4>Pneumonia</h4>
-                    <p class="small text-muted">Deep lung resonance profiling to identify complex inflammation.</p>
-                </div>
-                <div class="disorder-item">
-                    <h4>URTI</h4>
-                    <p class="small text-muted">Upper respiratory mapping for cold and influenza screening.</p>
-                </div>
-            </div>
-        </main>
+      const formData = new FormData();
+      formData.append("audio", file);
 
-        <footer>
-            <p>ADVANCED DIAGNOSTIC PROTOTYPE v2.4 // SECURE LOCAL INSTANCE</p>
-        </footer>
-    </div>
+      fetch('/predict', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById('result').innerHTML = "Error: " + data.error;
+          return;
+        }
 
-    <!-- Scanner Overlay -->
-    <div id="loading-overlay" class="overlay d-none">
-        <div class="scan-line"></div>
-        <div class="spinner"></div>
-        <p class="mt-4 text-white letter-spacing-1">ANALYZING COUGH PATTERN...</p>
-    </div>
+        // Show label and mock mode
+        const mockText = data.mock ? " (Mock Prediction)" : "";
+        document.getElementById('result').innerHTML = `<h2>Prediction: ${data.label}${mockText}</h2>`;
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+        // Draw probabilities chart with consistent label order
+        const labels = data.categories;  // order from backend
+        const values = labels.map(label => data.probabilities[label]);
+
+        if (chart) chart.destroy(); // remove old chart
+
+        const ctx = document.getElementById('probChart').getContext('2d');
+        chart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Confidence',
+              data: values,
+              backgroundColor: 'rgba(255, 255, 255, 0.6)',
+              borderColor: 'rgba(255, 255, 255, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 1
+              }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('result').innerHTML = "Error processing audio.";
+      });
+    }
+  </script>
 </body>
-
 </html>
