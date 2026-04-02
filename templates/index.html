@@ -1,83 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Cough Detection</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-        }
-        input[type=file] {
-            margin: 20px 0;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 1.2em;
-            color: #333;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cough Detection AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Modern Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
-    <h1>Cough Detection</h1>
-    <form id="uploadForm">
-        <input type="file" name="audio" id="audioFile" accept=".wav,.mp3" required>
-        <br>
-        <button type="submit">Upload & Predict</button>
-    </form>
+    <div class="container">
+        <header>
+            <h1>Cough Detection AI</h1>
+            <p>Smart diagnostic sound analysis for respiratory health monitoring.</p>
+        </header>
 
-    <div id="result"></div>
+        <main>
+            <div id="upload-section" class="card">
+                <div class="card-header">
+                    <div class="header-icon"></div>
+                    <h2>Cough Analysis Engine</h2>
+                </div>
+                <div class="card-body text-center">
+                    <div class="audio-controls mb-4">
+                        <input type="file" id="audio-file" accept="audio/*" class="d-none" onchange="loadFile(event)">
+                        <button id="upload-btn" onclick="document.getElementById('audio-file').click()"
+                            class="btn btn-primary">
+                            <span>Upload Cough Sample</span>
+                        </button>
+                        <button id="record-btn" onclick="toggleRecording()" class="btn btn-danger">
+                            <span>Record Live Cough</span>
+                        </button>
+                    </div>
+                    <div id="status" class="text-muted small">Systems Ready. Awaiting acoustic input.</div>
+                    <audio id="audio-playback" controls class="my-3 w-100 d-none"></audio>
+                    <button id="analyze-btn" onclick="analyzeAudio()" class="btn btn-success d-none">
+                        START DIAGNOSTIC SCAN
+                    </button>
+                </div>
+            </div>
 
-    <script>
-        const form = document.getElementById('uploadForm');
-        const resultDiv = document.getElementById('result');
+            <div id="result-section" class="card d-none">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6 text-center">
+                            <h3 class="text-secondary small text-uppercase fw-bold mb-3">Primary Diagnosis</h3>
+                            <div id="prediction-label" class="display-4">---</div>
+                            <div id="confidence-info" class="mt-4 text-muted"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="chart-container">
+                                <canvas id="analysis-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fileInput = document.getElementById('audioFile');
-            if (!fileInput.files.length) {
-                alert("Please select an audio file.");
-                return;
-            }
+            <div class="disorder-grid">
+                <div class="disorder-item">
+                    <h4>Asthma</h4>
+                    <p class="small text-muted">Chronic airway inflammation detection through unique spectral
+                        signatures.</p>
+                </div>
+                <div class="disorder-item">
+                    <h4>Croup</h4>
+                    <p class="small text-muted">Vocal cord pulse analysis for viral infection monitoring.</p>
+                </div>
+                <div class="disorder-item">
+                    <h4>Pneumonia</h4>
+                    <p class="small text-muted">Deep lung resonance profiling to identify complex inflammation.</p>
+                </div>
+                <div class="disorder-item">
+                    <h4>URTI</h4>
+                    <p class="small text-muted">Upper respiratory mapping for cold and influenza screening.</p>
+                </div>
+            </div>
+        </main>
 
-            const formData = new FormData();
-            formData.append('audio', fileInput.files[0]);
+        <footer>
+            <p>ADVANCED DIAGNOSTIC PROTOTYPE v2.4 // SECURE LOCAL INSTANCE</p>
+        </footer>
+    </div>
 
-            resultDiv.innerHTML = "Processing...";
+    <!-- Scanner Overlay -->
+    <div id="loading-overlay" class="overlay d-none">
+        <div class="scan-line"></div>
+        <div class="spinner"></div>
+        <p class="mt-4 text-white letter-spacing-1">ANALYZING COUGH PATTERN...</p>
+    </div>
 
-            try {
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                
-                if (response.ok) {
-                    let probsHTML = '';
-                    if (data.probabilities) {
-                        for (const [cat, prob] of Object.entries(data.probabilities)) {
-                            probsHTML += `<li>${cat}: ${(prob*100).toFixed(2)}%</li>`;
-                        }
-                    }
-                    resultDiv.innerHTML = `
-                        <strong>Prediction:</strong> ${data.label} <br>
-                        <ul>${probsHTML}</ul>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<strong>Error:</strong> ${data.error}`;
-                }
-
-            } catch (err) {
-                resultDiv.innerHTML = `<strong>Error:</strong> ${err}`;
-            }
-        });
-    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>
+
