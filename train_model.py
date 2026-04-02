@@ -1,84 +1,62 @@
-# train_model.py
 import os
+import glob
 import numpy as np
-import librosa
-import pywt
-import joblib
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.utils import shuffle
+import joblib
+import librosa
 
-# --- Paths ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SOURCE_DIR = os.path.join(BASE_DIR, 'Source')  # Folder containing subfolders for each cough type
+# Directory with organized audio files
+DATA_DIR = "RESIZED"
 
-# Automatically detect categories
-categories = [d for d in os.listdir(SOURCE_DIR) if os.path.isdir(os.path.join(SOURCE_DIR, d))]
-print("Detected categories for training:", categories)
+# Categories are subfolders
+categories = [d for d in os.listdir(DATA_DIR) if os.path.isdir(os.path.join(DATA_DIR, d))]
+print(f"Detected categories for training: {categories}")
 
-# --- Feature Extraction ---
-def extract_features(y, sr=22050, n_mfcc=13):
-    try:
-        mel = librosa.feature.melspectrogram(y=y, sr=sr)
-        log_mel = librosa.power_to_db(mel)
-        mfcc = librosa.feature.mfcc(S=log_mel, sr=sr, n_mfcc=n_mfcc)
-        contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
-        coeffs, _ = pywt.cwt(y, np.arange(1, 32), 'morl', sampling_period=1/sr)
-        wavelet_mean = np.mean(np.abs(coeffs), axis=1)
-        wavelet_std = np.std(np.abs(coeffs), axis=1)
-        energy = np.sum(librosa.feature.rms(y=y))
-        flatness = np.mean(librosa.feature.spectral_flatness(y=y))
-
-        features = np.concatenate([
-            np.mean(mfcc, axis=1),
-            np.std(mfcc, axis=1),
-            np.mean(contrast, axis=1),
-            wavelet_mean,
-            wavelet_std,
-            [energy, flatness]
-        ])
-        return features
-    except Exception as e:
-        print(f"Error extracting features: {e}")
-        return None
-
-# --- Load Dataset ---
 X = []
 y = []
 
-for cat in categories:
-    folder = os.path.join(SOURCE_DIR, cat)
-    for file in os.listdir(folder):
-        if file.endswith('.WAV'):
-            path = os.path.join(folder, file)
-            try:
-                # Load audio
-                audio, sr = librosa.load(path, sr=22050)
-                
-                # Pad/trim to 6 seconds
-                target_len = 6 * sr
-                if len(audio) < target_len:
-                    audio = np.pad(audio, (0, target_len - len(audio)))
-                else:
-                    audio = audio[:target_len]
+# Function to extract features from audio
+def extract_features(file_path):
+    try:
+        audio, sr = librosa.load(file_path, sr=None)
+        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
+        mfccs_mean = np.mean(mfccs.T, axis=0)
+        return mfccs_mean
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return None
 
-                # Extract features
-                features = extract_features(audio, sr)
-                if features is not None:
-                    X.append(features)
-                    y.append(cat)
-            except Exception as e:
-                print(f"Skipping {path}: {e}")
+# Iterate over categories
+total_files = 0
+for idx, cat in enumerate(categories):
+    category_path = os.path.join(DATA_DIR, cat)
+    # Grab all .wav files, any case
+    files = glob.glob(os.path.join(category_path, "*.wav")) + \
+            glob.glob(os.path.join(category_path, "*.WAV"))
 
-print(f"Total samples found: {len(X)}")
+    if not files:
+        print(f"⚠️  Warning: No audio files found for category '{cat}'!")
+        continue
 
-# Shuffle dataset
-X, y = shuffle(X, y, random_state=42)
+    for f in files:
+        features = extract_features(f)
+        if features is not None:
+            X.append(features)
+            y.append(idx)
+            total_files += 1
 
-# --- Train Random Forest ---
+print(f"Total samples found: {total_files}")
+
+if total_files == 0:
+    raise ValueError("No audio files found! Check RESIZED folder structure and file extensions.")
+
+X = np.array(X)
+y = np.array(y)
+
+# Train model
 clf = RandomForestClassifier(n_estimators=100, random_state=42)
 clf.fit(X, y)
 
-# --- Save Model + Categories ---
-joblib.dump((clf, categories), 'cough_model.pkl')
-print("Model trained and saved as 'cough_model.pkl'")
-print("Categories:", categories)
+# Save model
+joblib.dump(clf, "cough_model.pkl")
+print("✅ Model trained and saved as 'cough_model.pkl'")
