@@ -4,6 +4,11 @@ import librosa
 import pywt
 import joblib
 from flask import Flask, request, jsonify, render_template
+from pydub import AudioSegment
+
+# --- FFmpeg fix for pydub ---
+# Update this path to your extracted ffmpeg bin folder
+AudioSegment.converter = r"C:\Users\ACER\Downloads\ffmpeg\bin\ffmpeg.exe"
 
 # --- Absolute template folder fix ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -72,11 +77,11 @@ def predict():
     start_time = time.time()
 
     try:
-        # Load audio
+        # Load audio robustly
         try:
             y, sr = librosa.load(temp_path, sr=22050, mono=True, res_type='kaiser_fast')
         except Exception as e:
-            from pydub import AudioSegment
+            print(f"Librosa failed ({e}), using pydub...")
             audio = AudioSegment.from_file(temp_path)
             audio = audio.set_frame_rate(22050).set_channels(1)
             y = np.array(audio.get_array_of_samples(), dtype=np.float32) / (2**15)
@@ -121,5 +126,4 @@ def predict():
 
 if __name__ == '__main__':
     load_model()
-    # Always accessible from network
     app.run(host='0.0.0.0', port=5000, debug=True)
