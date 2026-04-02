@@ -1,137 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cough Detection AI</title>
-  <link href="https://cdn.jsdelivr.net/npm/chart.js" rel="stylesheet">
-  <style>
-    /* --- Glassmorphic Background --- */
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #1f1c2c, #928dab);
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 0;
-    }
-    .container {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      backdrop-filter: blur(15px);
-      padding: 40px;
-      width: 400px;
-      text-align: center;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    }
-    h1 {
-      color: #fff;
-      margin-bottom: 20px;
-    }
-    input[type="file"] {
-      margin: 20px 0;
-    }
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 10px;
-      background: #ff6a3d;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #ff4b1f;
-    }
-    #result {
-      margin-top: 20px;
-      color: #fff;
-    }
-    canvas {
-      margin-top: 20px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Cough Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        input[type=file] {
+            margin: 20px 0;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Cough Detection AI</h1>
-    <input type="file" id="audioFile" accept=".wav,.mp3">
-    <br>
-    <button onclick="uploadAudio()">Analyze Cough</button>
+    <h1>Cough Detection</h1>
+    <form id="uploadForm">
+        <input type="file" name="audio" id="audioFile" accept=".wav,.mp3" required>
+        <br>
+        <button type="submit">Upload & Predict</button>
+    </form>
+
     <div id="result"></div>
-    <canvas id="probChart" width="350" height="200"></canvas>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    let chart;
+    <script>
+        const form = document.getElementById('uploadForm');
+        const resultDiv = document.getElementById('result');
 
-    function uploadAudio() {
-      const fileInput = document.getElementById('audioFile');
-      const file = fileInput.files[0];
-      if (!file) {
-        alert("Please select an audio file.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("audio", file);
-
-      fetch('/predict', {
-        method: 'POST',
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-          document.getElementById('result').innerHTML = "Error: " + data.error;
-          return;
-        }
-
-        // Show label and mock mode
-        const mockText = data.mock ? " (Mock Prediction)" : "";
-        document.getElementById('result').innerHTML = `<h2>Prediction: ${data.label}${mockText}</h2>`;
-
-        // Draw probabilities chart with consistent label order
-        const labels = data.categories;  // order from backend
-        const values = labels.map(label => data.probabilities[label]);
-
-        if (chart) chart.destroy(); // remove old chart
-
-        const ctx = document.getElementById('probChart').getContext('2d');
-        chart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Confidence',
-              data: values,
-              backgroundColor: 'rgba(255, 255, 255, 0.6)',
-              borderColor: 'rgba(255, 255, 255, 1)',
-              borderWidth: 1
-            }]
-          },
-          options: {
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 1
-              }
-            },
-            plugins: {
-              legend: { display: false }
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('audioFile');
+            if (!fileInput.files.length) {
+                alert("Please select an audio file.");
+                return;
             }
-          }
+
+            const formData = new FormData();
+            formData.append('audio', fileInput.files[0]);
+
+            resultDiv.innerHTML = "Processing...";
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let probsHTML = '';
+                    if (data.probabilities) {
+                        for (const [cat, prob] of Object.entries(data.probabilities)) {
+                            probsHTML += `<li>${cat}: ${(prob*100).toFixed(2)}%</li>`;
+                        }
+                    }
+                    resultDiv.innerHTML = `
+                        <strong>Prediction:</strong> ${data.label} <br>
+                        <ul>${probsHTML}</ul>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                }
+
+            } catch (err) {
+                resultDiv.innerHTML = `<strong>Error:</strong> ${err}`;
+            }
         });
-      })
-      .catch(err => {
-        console.error(err);
-        document.getElementById('result').innerHTML = "Error processing audio.";
-      });
-    }
-  </script>
+    </script>
 </body>
 </html>
