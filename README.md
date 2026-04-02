@@ -193,14 +193,4 @@ http://127.0.0.1:5000
 
 ---
 
-## 📸 Demo
 
-> Add screenshots or GIF here for best impact
-
----
-
-## 👨‍💻 Author
-
-Developed as an advanced machine learning prototype for respiratory sound analysis.
-
----
