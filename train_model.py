@@ -1,5 +1,6 @@
 import os
 import glob
+import random
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 import joblib
@@ -8,20 +9,21 @@ import librosa
 # Directory with organized audio files
 DATA_DIR = "RESIZED"
 
-# Categories are subfolders
+# ✅ FIXED CATEGORY ORDER (VERY IMPORTANT)
 categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
 print(f"Detected categories for training: {categories}")
 
 X = []
 y = []
 
-# Function to extract features from audio
+# ✅ Feature Extraction (IMPROVED)
 def extract_features(file_path):
     try:
         audio, sr = librosa.load(file_path, sr=22050)
 
-        # Normalize
-        audio = audio / np.max(np.abs(audio))
+        # Normalize audio
+        if np.max(np.abs(audio)) != 0:
+            audio = audio / np.max(np.abs(audio))
 
         # MFCC
         mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
@@ -43,19 +45,22 @@ def extract_features(file_path):
         print(f"Error processing {file_path}: {e}")
         return None
 
-# Iterate over categories
+# ✅ Iterate over categories
 total_files = 0
+
 for idx, cat in enumerate(categories):
     category_path = os.path.join(DATA_DIR, cat)
-    # Grab all .wav files, any case
+
+    # Get all wav files
     files = glob.glob(os.path.join(category_path, "*.wav")) + \
             glob.glob(os.path.join(category_path, "*.WAV"))
-import random
 
-random.shuffle(files)
-files = files[:24]
+    # 🔥 Shuffle and balance dataset
+    random.shuffle(files)
+    files = files[:24]   # take equal samples from each class
+
     if not files:
-        print(f"⚠️  Warning: No audio files found for category '{cat}'!")
+        print(f"⚠️ Warning: No audio files found for category '{cat}'!")
         continue
 
     for f in files:
@@ -65,18 +70,26 @@ files = files[:24]
             y.append(idx)
             total_files += 1
 
-print(f"Total samples found: {total_files}")
+print(f"Total samples used: {total_files}")
 
+# Safety check
 if total_files == 0:
-    raise ValueError("No audio files found! Check RESIZED folder structure and file extensions.")
+    raise ValueError("No audio files found! Check RESIZED folder.")
 
+# Convert to numpy arrays
 X = np.array(X)
 y = np.array(y)
 
-# Train model
-clf = RandomForestClassifier(n_estimators=100, random_state=42)
+# ✅ Improved model
+clf = RandomForestClassifier(
+    n_estimators=300,
+    max_depth=20,
+    random_state=42
+)
+
 clf.fit(X, y)
 
 # Save model
 joblib.dump(clf, "cough_model.pkl")
+
 print("✅ Model trained and saved as 'cough_model.pkl'")
