@@ -18,7 +18,7 @@ AudioSegment.converter = r"C:\Users\ACER\Downloads\ffmpeg-8.1-essentials_build\b
 categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
 print("Detected categories:", categories)
 
-# --- Feature Extraction (FIXED: 39 FEATURES) ---
+# --- Feature Extraction (42 FEATURES) ---
 def extract_features(y, sr=22050):
     try:
         # Normalize
@@ -34,12 +34,22 @@ def extract_features(y, sr=22050):
         # Delta2
         delta2 = librosa.feature.delta(mfcc, order=2)
 
-        # Combine → 39 features
+        # Extra features
+        zcr = np.mean(librosa.feature.zero_crossing_rate(y))
+        chroma = np.mean(librosa.feature.chroma_stft(y=y, sr=sr))
+        spectral = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
+
+        # Combine → 42 features
         features = np.hstack([
             np.mean(mfcc, axis=1),
             np.mean(delta, axis=1),
-            np.mean(delta2, axis=1)
+            np.mean(delta2, axis=1),
+            zcr,
+            chroma,
+            spectral
         ])
+
+        print("Feature length:", len(features))  # 🔥 Debug check
 
         return features
 
@@ -55,8 +65,8 @@ def load_model():
     try:
         model = joblib.load(os.path.join(BASE_DIR, 'cough_model.pkl'))
         print("✅ Model loaded successfully.")
-    except:
-        print("❌ Model not found.")
+    except Exception as e:
+        print("❌ Model load error:", e)
         model = None
 
 # --- Routes ---
