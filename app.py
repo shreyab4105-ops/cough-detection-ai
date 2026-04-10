@@ -14,28 +14,49 @@ app = Flask(__name__, template_folder=TEMPLATE_DIR)
 from pydub import AudioSegment
 AudioSegment.converter = r"C:\Users\ACER\Downloads\ffmpeg-8.1-essentials_build\bin\ffmpeg.exe"
 
-# --- Feature Extraction ---
-def extract_features(y, sr=22050, n_mfcc=13):
+# --- Categories (same as training) ---
+categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
+print("Detected categories:", categories)
+
+# --- Feature Extraction (FIXED: 39 FEATURES) ---
+def extract_features(y, sr=22050):
     try:
-        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-        return np.mean(mfcc, axis=1)
+        # Normalize
+        if np.max(np.abs(y)) != 0:
+            y = y / np.max(np.abs(y))
+
+        # MFCC
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+
+        # Delta
+        delta = librosa.feature.delta(mfcc)
+
+        # Delta2
+        delta2 = librosa.feature.delta(mfcc, order=2)
+
+        # Combine → 39 features
+        features = np.hstack([
+            np.mean(mfcc, axis=1),
+            np.mean(delta, axis=1),
+            np.mean(delta2, axis=1)
+        ])
+
+        return features
+
     except Exception as e:
         print("Feature error:", e)
         return None
 
 # --- Load Model ---
 model = None
-SOURCE_DIR = os.path.join(BASE_DIR, 'Source')
-categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
-print("Detected categories:", categories)
 
 def load_model():
     global model
     try:
         model = joblib.load(os.path.join(BASE_DIR, 'cough_model.pkl'))
-        print("Model loaded successfully.")
+        print("✅ Model loaded successfully.")
     except:
-        print("Model not found. Using mock.")
+        print("❌ Model not found.")
         model = None
 
 # --- Routes ---
@@ -68,26 +89,29 @@ def predict():
             y = np.array(audio.get_array_of_samples(), dtype=np.float32) / (2**15)
             sr = 22050
 
-        # --- Pad / Trim ---
+        # --- Pad / Trim (6 sec) ---
         target_len = 6 * sr
         if len(y) < target_len:
             y = np.pad(y, (0, target_len - len(y)))
         else:
             y = y[:target_len]
 
-        # --- Feature extraction ---
+        # --- Extract features ---
         features = extract_features(y, sr)
         if features is None:
             return jsonify({'error': 'Feature extraction failed'}), 500
 
         # --- Prediction ---
         if model:
-            pred_index = int(model.predict([features])[0])  # ✅ FIX
+            pred_index = int(model.predict([features])[0])
             prediction = categories[pred_index]
 
             try:
                 probs = model.predict_proba([features])[0]
-                prob_dict = {str(cat): float(p) for cat, p in zip(categories, probs)}  # ✅ FIX
+                prob_dict = {
+                    str(cat): float(p)
+                    for cat, p in zip(categories, probs)
+                }
             except:
                 prob_dict = None
         else:
