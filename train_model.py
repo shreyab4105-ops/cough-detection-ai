@@ -9,7 +9,7 @@ import librosa
 DATA_DIR = "RESIZED"
 
 # Categories are subfolders
-categories = [d for d in os.listdir(DATA_DIR) if os.path.isdir(os.path.join(DATA_DIR, d))]
+categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
 print(f"Detected categories for training: {categories}")
 
 X = []
@@ -18,7 +18,7 @@ y = []
 # Function to extract features from audio
 def extract_features(file_path):
     try:
-        audio, sr = librosa.load(file_path, sr=None)
+        audio, sr = librosa.load(file_path, sr=22050)
         mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
         mfccs_mean = np.mean(mfccs.T, axis=0)
         return mfccs_mean
