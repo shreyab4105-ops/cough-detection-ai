@@ -26,7 +26,7 @@ def extract_features(y, sr=22050, n_mfcc=13):
 # --- Load Model ---
 model = None
 SOURCE_DIR = os.path.join(BASE_DIR, 'Source')
-categories = [d for d in os.listdir(SOURCE_DIR) if os.path.isdir(os.path.join(SOURCE_DIR, d))]
+categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
 print("Detected categories:", categories)
 
 def load_model():
