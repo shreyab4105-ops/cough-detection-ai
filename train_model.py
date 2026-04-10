@@ -33,7 +33,7 @@ for idx, cat in enumerate(categories):
     # Grab all .wav files, any case
     files = glob.glob(os.path.join(category_path, "*.wav")) + \
             glob.glob(os.path.join(category_path, "*.WAV"))
-
+files = files[:24]
     if not files:
         print(f"⚠️  Warning: No audio files found for category '{cat}'!")
         continue
