@@ -19,8 +19,15 @@ y = []
 def extract_features(file_path):
     try:
         audio, sr = librosa.load(file_path, sr=22050)
-        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
-        mfccs_mean = np.mean(mfccs.T, axis=0)
+        audio = audio / np.max(np.abs(audio))
+       delta = librosa.feature.delta(mfcc)
+        delta2 = librosa.feature.delta(mfcc, order=2)
+
+        features = np.hstack([
+            np.mean(mfcc, axis=1),
+            np.mean(delta, axis=1),
+            np.mean(delta2, axis=1)
+        ])
         return mfccs_mean
     except Exception as e:
         print(f"Error processing {file_path}: {e}")
