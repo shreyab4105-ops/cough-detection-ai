@@ -13,7 +13,9 @@ venv/
 # Project specifics
 temp_audio.wav
 cough_model.pkl
+labels.pkl
 RESIZED/
+Source/
 
 # OS generated
 .DS_Store
