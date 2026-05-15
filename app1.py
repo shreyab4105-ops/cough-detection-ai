@@ -10,17 +10,15 @@ app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load model
+# Load model + scaler + labels
 model = load_model(os.path.join(BASE_DIR, "ann_cough_model.h5"))
 scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 labels = joblib.load(os.path.join(BASE_DIR, "labels.pkl"))
 
-# ---------------- HOME PAGE ----------------
 @app.route("/")
 def home():
     return render_template("index.html")
 
-# ---------------- PREDICT API ----------------
 @app.route("/predict", methods=["POST"])
 def predict():
 
@@ -37,10 +35,21 @@ def predict():
         features = extract_features(y, sr)
         features = scaler.transform([features])
 
-        pred = model.predict(features)
-        label = labels[np.argmax(pred)]
+        pred = model.predict(features)[0]
+        idx = np.argmax(pred)
 
-        return jsonify({"result": label})
+        label = labels[idx]
+
+        # probabilities for chart
+        prob_dict = {
+            labels[i]: float(pred[i])
+            for i in range(len(labels))
+        }
+
+        return jsonify({
+            "result": label,
+            "probabilities": prob_dict
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)})
@@ -49,6 +58,5 @@ def predict():
         if os.path.exists(path):
             os.remove(path)
 
-# ---------------- RUN APP ----------------
 if __name__ == "__main__":
     app.run(debug=True)
