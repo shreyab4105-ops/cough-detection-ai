@@ -14,8 +14,15 @@ model = load_model(os.path.join(BASE_DIR, "ann_cough_model.h5"))
 scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 labels = joblib.load(os.path.join(BASE_DIR, "labels.pkl"))
 
+@app.route("/")
+def home():
+    return "✅ Cough Detection API Running"
+
 @app.route("/predict", methods=["POST"])
 def predict():
+
+    if "audio" not in request.files:
+        return jsonify({"error": "No file uploaded"})
 
     file = request.files["audio"]
     path = "temp.wav"
@@ -25,11 +32,9 @@ def predict():
         y, sr = librosa.load(path, sr=22050)
 
         features = extract_features(y, sr)
-
         features = scaler.transform([features])
 
         pred = model.predict(features)
-
         label = labels[np.argmax(pred)]
 
         return jsonify({"result": label})
