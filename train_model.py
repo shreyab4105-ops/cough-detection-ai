@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.utils import shuffle
 from utils import extract_features
 
-DATA_DIR = "RESIZED"
+DATA_DIR = "Source"
 
 categories = ['Asthama','CROUP','LTRI','NORMAL','PNEUMONIA','URTI']
 
