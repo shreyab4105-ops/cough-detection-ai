@@ -13,4 +13,4 @@ seaborn
 pandas
 tensorflow
 gunicorn
-audioop-lts
+audioop-lts;python_version >= "3.13"
