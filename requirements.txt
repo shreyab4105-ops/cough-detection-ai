@@ -13,3 +13,4 @@ seaborn
 pandas
 tensorflow
 gunicorn
+audioop-lts
